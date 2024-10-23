@@ -1,0 +1,163 @@
+Cell Proportions Graphs
+
+
+Load Libraries
+```{r}
+library(ggplot2)
+library(magrittr)
+library(dplyr)
+library(ggbeeswarm)
+library(broom)
+library(ggpubr)
+library(patchwork)
+library(data.table)
+library(reshape2)
+```
+Data Filtering
+```{r}
+
+# Load files
+patient_info <- '/Users/hugohudson/Desktop/Lab/GSE74193_GEO_procData.csv'
+in_depth_patient_info <- '/Users/hugohudson/Desktop/Lab/GSE74193_series_matrix.csv'
+
+col_names <- names(fread(patient_info, nrows = 0))
+beta_columns <- col_names[grepl("Beta", col_names)]
+methylation_df <- fread(patient_info, select = beta_columns)
+col_names <- colnames(methylation_df)
+patient_df <- read.csv(in_depth_patient_info)
+  # Create a dataframe of methylation data that is aligned with the cell fractions, i.e. exclude if we do not have cell fractions
+brnum <- substr(patient_df[43, 2:ncol(patient_df)], 50, nchar(patient_df[43, 2]))
+colnames(methylation_df) <- brnum
+colnames(methylation_df) <- make.names(colnames(methylation_df), unique = TRUE)
+uniqueDF <- select(methylation_df, colnames(methylation_df)[!grepl("\\.1$", colnames(methylation_df))])
+
+# Now select the ones in unique that have DAN's brnums
+danCSV <- read.csv('/Users/hugohudson/Desktop/Lab/epigenetic_age_added.csv')
+hugoCSV <- read.csv('/Users/hugohudson/Desktop/Lab/epigenetic_age_added.csv')
+filteredDAN <- filter(danCSV, grepl('Br', danCSV$individualID))
+accurateDF <- select(uniqueDF, colnames(uniqueDF)[colnames(uniqueDF) %in% filteredDAN$individualID])
+danFILTER <- filteredDAN %>%
+  filter(individualID %in% colnames(accurateDF))
+# Make df with sorted brnum and fractions
+index <- ncol(danFILTER) - 1
+df <- transpose(danFILTER[, 9:index])
+nextNames <- df[1, ]
+df <- df[2:nrow(df), ]
+colnames(df) <- nextNames
+# return the above df and sorted methylation
+patientData <- df[sort(colnames(df))]
+methylationData <- select(accurateDF, sort(colnames(accurateDF)))
+epiData <- danFILTER[, index]
+
+cell_types <- c("Astrocyte", "Endothelial", "IT", "L4.IT", "L5.ET", 
+                "L5.6.IT.Car3", "L5.6.NP", "L6.CT", "L6b", "LAMP5", 
+                "Microglia", "OPC", "Oligodendrocyte", "PAX6", 
+                "PVALB", "Pericyte", "SST", "VIP", "VLMC")
+cellProp <- t(patientData[28:nrow(patientData), ])
+colnames(cellProp) <- cell_types
+```
+
+Graph Cell Proportions
+```{r}
+for (i in seq_along(cell_types)) {
+  print(i)
+  cellData <- as.data.frame(cbind(as.numeric(cellProp[i, ]), as.numeric(epiData)))
+  ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+    geom_point()
+}
+cellData <- as.data.frame(cbind(as.numeric(cellProp[1, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'Astrocyte')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[2, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'Endothelial')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[3, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'IT')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[4, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'L4.IT')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[5, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'L5.ET')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[6, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'L5.6.IT.Car3')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[7, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'L5.6.NP')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[8, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'L6.CT')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[9, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'L6b')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[10, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'LAMP5')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[11, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'Microglia')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[12, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'OPC')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[13, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'Oligodendrocyte')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[14, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'Pax6')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[15, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'PVALB')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[16, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'Pericyte')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[17, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'SST')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[18, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'VIP')
+
+cellData <- as.data.frame(cbind(as.numeric(cellProp[19, ]), as.numeric(epiData)))
+ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
+  geom_point() +
+  labs(title = 'VLMC')
+```
+
