@@ -1,0 +1,62 @@
+Cell Age Calculation
+
+Loading Libraries
+```{r}
+library(data.table)
+library(dplyr)
+library(glmnet)
+```
+
+Loading Files
+```{r}
+# DMCT Information
+dmctFilePath <- '/Users/hugohudson/Desktop/Lab/DMCT.csv'
+dmcDF <- read.csv(dmctFilePath)
+
+# Methylation Data Information
+methyFile <- '/Users/hugohudson/Desktop/Lab/GSE74193_GEO_procData.csv'
+col_names <- names(fread(methyFile, nrows = 0))
+beta_columns <- col_names[grepl("Beta", col_names)]
+methylationData <- fread(methyFile, select = beta_columns)
+col_names <- colnames(methylationData)
+
+# Patient Information
+patientFile <- '/Users/hugohudson/Desktop/Lab/GSE74193_series_matrix.csv'
+patientData <- read.csv(patientFile)
+# Remove Duplicates
+patientData <- patientData[, 2:ncol(patientData)]
+brnum <- substr(patientData[43,], 50, nchar(patientData[43, 2]))
+colnames(methylationData) <- brnum
+colnames(methylationData) <- make.names(colnames(methylationData), unique = TRUE)
+methylationData <- select(methylationData, colnames(methylationData)[!grepl("\\.1$", colnames(methylationData))])
+colnames(patientData) <- brnum
+colnames(patientData) <- make.names(colnames(patientData), unique = TRUE)
+patientData <- select(patientData, colnames(patientData)[!grepl("\\.1$", colnames(patientData))])
+```
+
+Example for One Cell
+```{r}
+# Mask the Methylation Data
+astrocyteMask <- as.logical(dmcDF$Astrocyte)
+astrocyteMethylation <- methylationData[astrocyteMask, ]
+astrocyteFormatted <- t(astrocyteMethylation)
+ages <- as.numeric(substr(patientData[49, ], 17, nchar(patientData[49, 1])))
+
+fit <- glmnet(astrocyteFormatted, ages, alpha = 0.2, nlambda = 20)
+coef.exact <- coef(fit, s=0.2, exact = TRUE, x=astrocyteFormatted, y=ages)
+coefficients <- as.numeric(coef.exact)
+scaled <- coefficients * astrocyteMethylation
+column_sums <- list()
+for (col in colnames(scaled)) {
+  column_sums[[col]] <- sum(scaled[[col]], na.rm = TRUE)
+}
+astocyteAges <- as.data.frame(column_sums)
+astocyteAges
+
+```
+
+For all cells
+```{r}
+
+```
+
