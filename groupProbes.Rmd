@@ -31,60 +31,84 @@ patient_df <- read.csv(in_depth_patient_info)
 
 Gather information from files
 ```{r}
-group_info <- patient_df[34, 1:ncol(patient_df)]
-control_columns <- col_names[grepl("Control", group_info)]
-control_df <- select(methylation_df, na.omit(control_columns))
-positive_columns <- col_names[grepl("Schizo", group_info)]
-positive_df <- select(methylation_df, na.omit(positive_columns))
+# Removing duplicates from methylation
+brnum <- substr(patient_df[43, 2:ncol(patient_df)], 50, nchar(patient_df[43, 2]))
+colnames(methylation_df) <- brnum
+colnames(methylation_df) <- make.names(colnames(methylation_df), unique = TRUE)
+uniqueDF <- select(methylation_df, colnames(methylation_df)[!grepl("\\.1$", colnames(methylation_df))])
+# Removing the same duplicates from the patient information dataframe
+patient_df <- patient_df[35:nrow(patient_df), 2:ncol(patient_df)]
+colnames(patient_df) <- brnum
+colnames(patient_df) <- make.names(colnames(patient_df), unique = TRUE)
+patient_df <- select(patient_df, colnames(patient_df)[!grepl("\\.1$", colnames(patient_df))])
 
+# Getting group information
+group_info <- patient_df[14, 1:ncol(patient_df)]
+control_columns <- colnames(patient_df)[grepl("Control", group_info)]
+control_df <- select(uniqueDF, na.omit(control_columns))
+positive_columns <- colnames(patient_df)[grepl("Schizo", group_info)]
+positive_df <- select(uniqueDF, na.omit(positive_columns))
 # Get ages
-age_full <- patient_df[49, 1:ncol(patient_df)]
+age_full <- patient_df[15, 1:ncol(patient_df)]
+age_full <- as.numeric(substr(age_full, 17, nchar(age_full[1])))
 control_ages <- age_full[grepl("Control", group_info)]
 positive_ages <- age_full[grepl("Schizo", group_info)]
 ```
 
 Elastic Net Regression
 ```{r}
-cv_5 <- trainControl(method = "cv", number = 5)
-elnetControl <- train(V1 ~ .,
-  data = cbind(transpose(control_df), control_ages),
-  method = "glmnet",
-  trControl = cv_5
-)
+controlFormatted <- t(control_df)
+fit <- glmnet(controlFormatted, control_ages, alpha = 0.2, nlambda = 20)
+coef.exact <- coef(fit, s=0.2, exact = TRUE, x=controlFormatted, y=control_ages)
 
-elnetPositive <- train(V1 ~ .,
-  data = cbind(transpose(positive_df), positive_ages),
-  method = "glmnet",
-  trControl = cv_5
-)
-elnetControl
+positiveFormatted <- t(positive_df)
+positiveFit <- glmnet(positiveFormatted, positive_ages, alpha = 0.2, nlambda = 20)
+positiveCoef.exact <- coef(positiveFit, s=0.2, exact = TRUE, x=positiveFormatted, y=positive_ages)
 ```
 Diagnosis Specific Probes
 ```{r}
-
+# Take the absolute value and rank them in terms of impact in a side by side dataframe
+probeList <- fread(patient_info, select = 1)
+probeList <- probeList$V1
+controlCoeff <- as.numeric(coef.exact)
+diagnosisDF <- as.data.frame(controlCoeff)
+diagnosisDF$SchizophreniaCoeff <- as.numeric(positiveCoef.exact)
+diagnosisDF$controlProbes <- probeList[order(abs(diagnosisDF$controlCoeff))]
+diagnosisDF$controlProbesImpact <- diagnosisDF$controlCoeff[order(abs(diagnosisDF$controlCoeff))]
+diagnosisDF$schizophreniaProbes <- probeList[order(abs(diagnosisDF$SchizophreniaCoeff))]
+diagnosisDF$schizophreniaProbesImpact <- diagnosisDF$SchizophreniaCoeff[order(abs(diagnosisDF$SchizophreniaCoeff))]
+diagnosisDF
 ```
-
 Ancestry Information
 ```{r}
+group_info <- patient_df[13, 1:ncol(patient_df)]
+AA_columns <- colnames(patient_df)[grepl("AA", group_info)]
+AA_df <- select(uniqueDF, na.omit(AA_columns))
+CAUC_columns <- colnames(patient_df)[grepl("CAUC", group_info)]
+CAUC_df <- select(uniqueDF, na.omit(CAUC_columns))
 
+# Get ages
+AA_ages <- age_full[grepl("AA", group_info)]
+CAUC_ages <- age_full[grepl("CAUC", group_info)]
 ```
 
 Elastic Net Regression for Ancestry
 ```{r}
-#Methylation
-ancestryInfo <- patient_df[34, 1:ncol(patient_df)]
-group1Columns <- col_names[grepl("Control", ancestryInfo)]
-group1df <- select(methylation_df, na.omit(control_columns))
-group2Columns <- col_names[grepl("Schizo", ancestryInfo)]
-group2df <- select(methylation_df, na.omit(positive_columns))
+aaFormatted <- t(AA_df)
+AAfit <- glmnet(aaFormatted, AA_ages, alpha = 0.2, nlambda = 20)
+aa.coef.exact <- coef(AAfit, s=0.2, exact = TRUE, x=aaFormatted, y=AA_ages)
 
-#Age
-group1Ages <- age_full[grepl("Control", race_info)]
-group2Ages <- age_full[grepl("Schizo", race_info)]
+caucFormatted <- t(CAUC_df)
+CAUCfit <- glmnet(caucFormatted, CAUC_ages, alpha = 0.2, nlambda = 20)
+cauc.coef.exact <- coef(CAUCfit, s=0.2, exact = TRUE, x=caucFormatted, y=CAUC_ages)
 ```
 
 Ancestry Specific Probes
 ```{r}
-
+# Take the absolute value and rank them in terms of impact in a side by side dataframe
+AACoeff <- as.numeric(aa.coef.exact)
+ancestryDF <- as.data.frame(AACoeff)
+ancestryDF$CAUCCoeff <- as.numeric(cauc.coef.exact)
+ancestryDF
 ```
 
