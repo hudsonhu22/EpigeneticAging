@@ -1,3 +1,19 @@
+# Requirements
+- ggplot2
+- magrittr
+- dplyr
+- ggbeeswarm
+- broom
+- ggpubr
+- patchwork
+- data.table
+- EpiDISH
+- readr
+- data.table
+- ISLR
+- caret
+- glmnet
+
 # Workflow
 
 ### 1. Load Data
@@ -17,3 +33,17 @@
 
 ### 6. Calculate Cell Age
 - Run coefficients & methylation data through Horvath Clock.
+
+# Files
+
+### sampleAligner
+Use the helper function created in this file to align the methylation data with the patient information and cell fractions.
+
+### groupProbes
+Finds the most significant probes for different group stratification.
+
+### dmctFinder
+Calculates the differentially methylated cell-type specific probes based on cell fraction using CellDMC.
+
+### cellAge
+Uses the DMCTs to calculate the epigenetic ages of each cell type across all samples.
