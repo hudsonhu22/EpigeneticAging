@@ -30,134 +30,1086 @@ brnum <- substr(patient_df[43, 2:ncol(patient_df)], 50, nchar(patient_df[43, 2])
 colnames(methylation_df) <- brnum
 colnames(methylation_df) <- make.names(colnames(methylation_df), unique = TRUE)
 uniqueDF <- select(methylation_df, colnames(methylation_df)[!grepl("\\.1$", colnames(methylation_df))])
-
 # Now select the ones in unique that have DAN's brnums
 danCSV <- read.csv('/Users/hugohudson/Desktop/Lab/epigenetic_age_added.csv')
-hugoCSV <- read.csv('/Users/hugohudson/Desktop/Lab/epigenetic_age_added.csv')
 filteredDAN <- filter(danCSV, grepl('Br', danCSV$individualID))
 accurateDF <- select(uniqueDF, colnames(uniqueDF)[colnames(uniqueDF) %in% filteredDAN$individualID])
 danFILTER <- filteredDAN %>%
   filter(individualID %in% colnames(accurateDF))
 # Make df with sorted brnum and fractions
-index <- ncol(danFILTER) - 1
-df <- transpose(danFILTER[, 9:index])
+df <- transpose(danFILTER[, 9:ncol(danFILTER)])
 nextNames <- df[1, ]
 df <- df[2:nrow(df), ]
 colnames(df) <- nextNames
 # return the above df and sorted methylation
 patientData <- df[sort(colnames(df))]
 methylationData <- select(accurateDF, sort(colnames(accurateDF)))
-epiData <- danFILTER[, index]
-
 cell_types <- c("Astrocyte", "Endothelial", "IT", "L4.IT", "L5.ET", 
                 "L5.6.IT.Car3", "L5.6.NP", "L6.CT", "L6b", "LAMP5", 
                 "Microglia", "OPC", "Oligodendrocyte", "PAX6", 
                 "PVALB", "Pericyte", "SST", "VIP", "VLMC")
 cellProp <- t(patientData[28:nrow(patientData), ])
-colnames(cellProp) <- cell_types
+colnames(cellProp) <- c(cell_types, 'epigeneticAge')
+cellProp <- as.data.frame(cellProp)
+previousNames <- colnames(cellProp)
+cellProp <- cbind(cellProp, t(patientData[17, ]), t(patientData[18, ]), t(patientData[19, ]), t(patientData[20, ]))
+colnames(cellProp) <- c(previousNames, 'diagnosis', 'gender', 'race', 'age')
+epiLM <-lm(as.numeric(age) ~ as.numeric(epigeneticAge), data = cellProp)
+model_residuals <- residuals(epiLM)
+epigeneticAge <- cellProp$epigeneticAge
+epigeneticAge<-as.numeric(cellProp$epigeneticAge)
+predicted_ages <- predict(ay, newdata = as.data.frame(epigeneticAge))
+cellProp$epigeneticAge <- predicted_ages
 ```
 
 Graph Cell Proportions
 ```{r}
-for (i in seq_along(cell_types)) {
-  print(i)
-  cellData <- as.data.frame(cbind(as.numeric(cellProp[i, ]), as.numeric(epiData)))
-  ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-    geom_point()
+
+astrocyteModel <- lm(as.numeric(Astrocyte) ~ epigeneticAge * diagnosis, data = cellProp)
+astrocyteSummary <- summary(astrocyteModel)
+astrocytepValInteract <- astrocyteSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (astrocytepValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(astrocytepValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(astrocytepValInteract, 3), ")")
 }
-cellData <- as.data.frame(cbind(as.numeric(cellProp[1, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'Astrocyte')
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(Astrocyte))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs Astrocyte Proportions", 
+        x = "Epigenetic Age", 
+        y = "Astrocyte Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[2, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'Endothelial')
+EndothelialModel <- lm(as.numeric(Endothelial) ~ epigeneticAge * diagnosis, data = cellProp)
+EndothelialSummary <- summary(EndothelialModel)
+EndothelialpValInteract <- EndothelialSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (EndothelialpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(EndothelialpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(EndothelialpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(Endothelial))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs Endothelial Proportions", 
+        x = "Epigenetic Age", 
+        y = "Endothelial Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[3, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'IT')
+ITModel <- lm(as.numeric(IT) ~ epigeneticAge * diagnosis, data = cellProp)
+ITSummary <- summary(ITModel)
+ITpValInteract <- ITSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(IT))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs IT Proportions", 
+        x = "Epigenetic Age", 
+        y = "IT Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[4, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'L4.IT')
+L4.ITModel <- lm(as.numeric(L4.IT) ~ epigeneticAge * diagnosis, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(L4.IT))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L4.IT Proportions", 
+        x = "Epigenetic Age", 
+        y = "L4.IT Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[5, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'L5.ET')
+L5.ETModel <- lm(as.numeric(L5.ET) ~ epigeneticAge * diagnosis, data = cellProp)
+L5.ETSummary <- summary(L5.ETModel)
+L5.ETpValInteract <- L5.ETSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (L5.ETpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L5.ETpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L5.ETpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(L5.ET))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L5.ET Proportions", 
+        x = "Epigenetic Age", 
+        y = "L5.ET Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[6, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'L5.6.IT.Car3')
+L5.6.IT.Car3Model <- lm(as.numeric(L5.6.IT.Car3) ~ epigeneticAge * diagnosis, data = cellProp)
+L5.6.IT.Car3Summary <- summary(L5.6.IT.Car3Model)
+L5.6.IT.Car3pValInteract <- L5.6.IT.Car3Summary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (L5.6.IT.Car3pValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L5.6.IT.Car3pValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L5.6.IT.Car3pValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(L5.6.IT.Car3))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L5.6.IT.Car3 Proportions", 
+        x = "Epigenetic Age", 
+        y = "L5.6.IT.Car3 Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[7, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'L5.6.NP')
+L5.6.NPModel <- lm(as.numeric(L5.6.NP) ~ epigeneticAge * diagnosis, data = cellProp)
+L5.6.NPSummary <- summary(L5.6.NPModel)
+L5.6.NPpValInteract <- L5.6.NPSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (L5.6.NPpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L5.6.NPpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L5.6.NPpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(L5.6.NP))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L5.6.NP Proportions", 
+        x = "Epigenetic Age", 
+        y = "L5.6.NP Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[8, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'L6.CT')
+L6.CTModel <- lm(as.numeric(L6.CT) ~ epigeneticAge * diagnosis, data = cellProp)
+L6.CTSummary <- summary(L6.CTModel)
+L6.CTpValInteract <- L6.CTSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (L6.CTpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L6.CTpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L6.CTpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(L6.CT))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L6.CT Proportions", 
+        x = "Epigenetic Age", 
+        y = "L6.CT Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[9, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'L6b')
+L4.ITModel <- lm(as.numeric(L6b) ~ epigeneticAge * diagnosis, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(L6b))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L6b Proportions", 
+        x = "Epigenetic Age", 
+        y = "L6b Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[10, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'LAMP5')
+L4.ITModel <- lm(as.numeric(LAMP5) ~ epigeneticAge * diagnosis, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(LAMP5))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs LAMP5 Proportions", 
+        x = "Epigenetic Age", 
+        y = "LAMP5 Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[11, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'Microglia')
+L4.ITModel <- lm(as.numeric(Microglia) ~ epigeneticAge * diagnosis, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(Microglia))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs Microglia Proportions", 
+        x = "Epigenetic Age", 
+        y = "Microglia Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[12, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'OPC')
+L4.ITModel <- lm(as.numeric(OPC) ~ epigeneticAge * diagnosis, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(OPC))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs OPC Proportions", 
+        x = "Epigenetic Age", 
+        y = "OPC Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[13, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'Oligodendrocyte')
+L4.ITModel <- lm(as.numeric(Oligodendrocyte) ~ epigeneticAge * diagnosis, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(Oligodendrocyte))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs Oligodendrocyte Proportions", 
+        x = "Epigenetic Age", 
+        y = "Oligodendrocyte Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[14, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'Pax6')
+L4.ITModel <- lm(as.numeric(PAX6) ~ epigeneticAge * diagnosis, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(PAX6))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs PAX6 Proportions", 
+        x = "Epigenetic Age", 
+        y = "PAX6 Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[15, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'PVALB')
+L4.ITModel <- lm(as.numeric(PVALB) ~ epigeneticAge * diagnosis, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(PVALB))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs PVALB Proportions", 
+        x = "Epigenetic Age", 
+        y = "PVALB Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[16, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'Pericyte')
+L4.ITModel <- lm(as.numeric(Pericyte) ~ epigeneticAge * diagnosis, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(Pericyte))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs Pericyte Proportions", 
+        x = "Epigenetic Age", 
+        y = "Pericyte Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[17, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'SST')
+L4.ITModel <- lm(as.numeric(SST) ~ epigeneticAge * diagnosis, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(SST))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs SST Proportions", 
+        x = "Epigenetic Age", 
+        y = "SST Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[18, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'VIP')
+L4.ITModel <- lm(as.numeric(VIP) ~ epigeneticAge * diagnosis, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(VIP))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs VIP Proportions", 
+        x = "Epigenetic Age", 
+        y = "VIP Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
 
-cellData <- as.data.frame(cbind(as.numeric(cellProp[19, ]), as.numeric(epiData)))
-ggplot(cellData, mapping = aes(x = V1, y = epiData)) + 
-  geom_point() +
-  labs(title = 'VLMC')
+vlmcModel <- lm(as.numeric(VLMC) ~ epigeneticAge * diagnosis, data = cellProp)
+vlmcSummary <- summary(vlmcModel)
+vlmcpValInteract <- vlmcSummary$coefficients['epigeneticAge:diagnosisSchizophrenia', 'Pr(>|t|)']
+if (vlmcpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(vlmcpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(vlmcpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = diagnosis, x = epigeneticAge, y = as.numeric(VLMC))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs VLMC Proportions", 
+        x = "Epigenetic Age", 
+        y = "VLMC Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+cellProp$epi_age_groups <- cut(x = cellProp$epigeneticAge, breaks = seq(10, 100, by = 10), labels = c("10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", "80-89", "90+"))
+ggplot(data = cellProp, mapping = aes(x = epi_age_groups, y = model_residuals, color = diagnosis)) +
+  geom_boxplot() + 
+  labs( x = "Chronological Age Groups", y = "Residuals", title = "Residuals for Chronological Age Groups")
+
 ```
+```{r}
+# Load necessary libraries
+library(dplyr)
+# Initialize a data frame to store results
+results <- data.frame(AgeBin = character(), 
+                      Test = character(),
+                      p.value = numeric(),
+                      stringsAsFactors = FALSE)
+# Loop through each age bin
+for (age_bin in unique(cellProp$epi_age_groups)) {
+  
+  # Subset the data for the current age bin
+  subset_data <- cellProp[cellProp$epi_age_groups == age_bin, ]
+  
+  # Split values by group
+  group1_values <- as.numeric(subset_data$epigeneticAge[subset_data$diagnosis == "control"])
+  group2_values <- as.numeric(subset_data$epigeneticAge[subset_data$diagnosis == "Schizophrenia"])
+  # Test for normality
+  if (length(group1_values) > 3 & length(group2_values) > 3){
+    shapiro_test_group1 <- shapiro.test(group1_values)
+  shapiro_test_group2 <- shapiro.test(group2_values)
+  
+  # Choose the appropriate test based on normality
+  if (shapiro_test_group1$p.value > 0.05 && shapiro_test_group2$p.value > 0.05) {
+    # Both groups are normally distributed
+    t_test_result <- t.test(group1_values, group2_values)
+    test_type <- "t-test"
+    p_value <- t_test_result$p.value
+  } else {
+    # At least one group is not normally distributed
+    mann_whitney_result <- wilcox.test(group1_values, group2_values)
+    test_type <- "Mann-Whitney U test"
+    p_value <- mann_whitney_result$p.value
+  }
+  
+  # Append the results to the results data frame
+  results <- rbind(results, data.frame(AgeBin = age_bin, 
+                                        Test = test_type,
+                                        p.value = p_value,
+                                        stringsAsFactors = FALSE))
+  }
+  else{
+    results <- rbind(results, data.frame(AgeBin = age_bin,
+                                         Test = 'NULL',
+                                         p.value = 'NULL',
+                                         stringsAsFactors = FALSE))
+  }
+  }
+  
+# View the results
+print(results)
+```
+
+For Ancestry / Race
+```{r}
+
+astrocyteModel <- lm(as.numeric(Astrocyte) ~ epigeneticAge * race, data = cellProp)
+astrocyteSummary <- summary(astrocyteModel)
+astrocytepValInteract <- astrocyteSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (astrocytepValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(astrocytepValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(astrocytepValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(Astrocyte))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs Astrocyte Proportions", 
+        x = "Epigenetic Age", 
+        y = "Astrocyte Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+EndothelialModel <- lm(as.numeric(Endothelial) ~ epigeneticAge * race, data = cellProp)
+EndothelialSummary <- summary(EndothelialModel)
+EndothelialpValInteract <- EndothelialSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (EndothelialpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(EndothelialpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(EndothelialpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(Endothelial))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs Endothelial Proportions", 
+        x = "Epigenetic Age", 
+        y = "Endothelial Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+ITModel <- lm(as.numeric(IT) ~ epigeneticAge * race, data = cellProp)
+ITSummary <- summary(ITModel)
+ITpValInteract <- ITSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(IT))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs IT Proportions", 
+        x = "Epigenetic Age", 
+        y = "IT Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(L4.IT) ~ epigeneticAge * race, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(L4.IT))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L4.IT Proportions", 
+        x = "Epigenetic Age", 
+        y = "L4.IT Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L5.ETModel <- lm(as.numeric(L5.ET) ~ epigeneticAge * race, data = cellProp)
+L5.ETSummary <- summary(L5.ETModel)
+L5.ETpValInteract <- L5.ETSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (L5.ETpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L5.ETpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L5.ETpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(L5.ET))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L5.ET Proportions", 
+        x = "Epigenetic Age", 
+        y = "L5.ET Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L5.6.IT.Car3Model <- lm(as.numeric(L5.6.IT.Car3) ~ epigeneticAge * race, data = cellProp)
+L5.6.IT.Car3Summary <- summary(L5.6.IT.Car3Model)
+L5.6.IT.Car3pValInteract <- L5.6.IT.Car3Summary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (L5.6.IT.Car3pValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L5.6.IT.Car3pValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L5.6.IT.Car3pValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(L5.6.IT.Car3))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L5.6.IT.Car3 Proportions", 
+        x = "Epigenetic Age", 
+        y = "L5.6.IT.Car3 Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L5.6.NPModel <- lm(as.numeric(L5.6.NP) ~ epigeneticAge * race, data = cellProp)
+L5.6.NPSummary <- summary(L5.6.NPModel)
+L5.6.NPpValInteract <- L5.6.NPSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (L5.6.NPpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L5.6.NPpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L5.6.NPpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(L5.6.NP))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L5.6.NP Proportions", 
+        x = "Epigenetic Age", 
+        y = "L5.6.NP Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L6.CTModel <- lm(as.numeric(L6.CT) ~ epigeneticAge * race, data = cellProp)
+L6.CTSummary <- summary(L6.CTModel)
+L6.CTpValInteract <- L6.CTSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (L6.CTpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L6.CTpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L6.CTpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(L6.CT))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L6.CT Proportions", 
+        x = "Epigenetic Age", 
+        y = "L6.CT Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(L6b) ~ epigeneticAge * race, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(L6b))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L6b Proportions", 
+        x = "Epigenetic Age", 
+        y = "L6b Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(LAMP5) ~ epigeneticAge * race, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(LAMP5))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs LAMP5 Proportions", 
+        x = "Epigenetic Age", 
+        y = "LAMP5 Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(Microglia) ~ epigeneticAge * race, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(Microglia))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs Microglia Proportions", 
+        x = "Epigenetic Age", 
+        y = "Microglia Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(OPC) ~ epigeneticAge * race, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(OPC))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs OPC Proportions", 
+        x = "Epigenetic Age", 
+        y = "OPC Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(Oligodendrocyte) ~ epigeneticAge * race, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(Oligodendrocyte))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs Oligodendrocyte Proportions", 
+        x = "Epigenetic Age", 
+        y = "Oligodendrocyte Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(PAX6) ~ epigeneticAge * race, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(PAX6))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs PAX6 Proportions", 
+        x = "Epigenetic Age", 
+        y = "PAX6 Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(PVALB) ~ epigeneticAge * race, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(PVALB))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs PVALB Proportions", 
+        x = "Epigenetic Age", 
+        y = "PVALB Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(Pericyte) ~ epigeneticAge * race, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(Pericyte))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs Pericyte Proportions", 
+        x = "Epigenetic Age", 
+        y = "Pericyte Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(SST) ~ epigeneticAge * race, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(SST))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs SST Proportions", 
+        x = "Epigenetic Age", 
+        y = "SST Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(VIP) ~ epigeneticAge * race, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(VIP))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs VIP Proportions", 
+        x = "Epigenetic Age", 
+        y = "VIP Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+vlmcModel <- lm(as.numeric(VLMC) ~ epigeneticAge * race, data = cellProp)
+vlmcSummary <- summary(vlmcModel)
+vlmcpValInteract <- vlmcSummary$coefficients['epigeneticAge:raceCAUC', 'Pr(>|t|)']
+if (vlmcpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(vlmcpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(vlmcpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = race, x = epigeneticAge, y = as.numeric(VLMC))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs VLMC Proportions", 
+        x = "Epigenetic Age", 
+        y = "VLMC Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+cellProp$epi_age_groups <- cut(x = cellProp$epigeneticAge, breaks = seq(10, 100, by = 10), labels = c("10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", "80-89", "90+"))
+
+ggplot(data = cellProp, mapping = aes(x = epi_age_groups, y = model_residuals, color = race)) +
+  geom_boxplot() + 
+  labs( x = "Chronological Age Groups", y = "Residuals", title = "Residuals for Chronological Age Groups")
+
+```
+For Gender
+```{r}
+astrocyteModel <- lm(as.numeric(Astrocyte) ~ epigeneticAge * gender, data = cellProp)
+astrocyteSummary <- summary(astrocyteModel)
+astrocytepValInteract <- astrocyteSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (astrocytepValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(astrocytepValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(astrocytepValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(Astrocyte))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs Astrocyte Proportions", 
+        x = "Epigenetic Age", 
+        y = "Astrocyte Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+EndothelialModel <- lm(as.numeric(Endothelial) ~ epigeneticAge * gender, data = cellProp)
+EndothelialSummary <- summary(EndothelialModel)
+EndothelialpValInteract <- EndothelialSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (EndothelialpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(EndothelialpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(EndothelialpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(Endothelial))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs Endothelial Proportions", 
+        x = "Epigenetic Age", 
+        y = "Endothelial Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+ITModel <- lm(as.numeric(IT) ~ epigeneticAge * gender, data = cellProp)
+ITSummary <- summary(ITModel)
+ITpValInteract <- ITSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(IT))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs IT Proportions", 
+        x = "Epigenetic Age", 
+        y = "IT Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(L4.IT) ~ epigeneticAge * gender, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(L4.IT))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L4.IT Proportions", 
+        x = "Epigenetic Age", 
+        y = "L4.IT Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L5.ETModel <- lm(as.numeric(L5.ET) ~ epigeneticAge * gender, data = cellProp)
+L5.ETSummary <- summary(L5.ETModel)
+L5.ETpValInteract <- L5.ETSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (L5.ETpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L5.ETpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L5.ETpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(L5.ET))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L5.ET Proportions", 
+        x = "Epigenetic Age", 
+        y = "L5.ET Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L5.6.IT.Car3Model <- lm(as.numeric(L5.6.IT.Car3) ~ epigeneticAge * gender, data = cellProp)
+L5.6.IT.Car3Summary <- summary(L5.6.IT.Car3Model)
+L5.6.IT.Car3pValInteract <- L5.6.IT.Car3Summary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (L5.6.IT.Car3pValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L5.6.IT.Car3pValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L5.6.IT.Car3pValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(L5.6.IT.Car3))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L5.6.IT.Car3 Proportions", 
+        x = "Epigenetic Age", 
+        y = "L5.6.IT.Car3 Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L5.6.NPModel <- lm(as.numeric(L5.6.NP) ~ epigeneticAge * gender, data = cellProp)
+L5.6.NPSummary <- summary(L5.6.NPModel)
+L5.6.NPpValInteract <- L5.6.NPSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (L5.6.NPpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L5.6.NPpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L5.6.NPpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(L5.6.NP))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L5.6.NP Proportions", 
+        x = "Epigenetic Age", 
+        y = "L5.6.NP Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L6.CTModel <- lm(as.numeric(L6.CT) ~ epigeneticAge * gender, data = cellProp)
+L6.CTSummary <- summary(L6.CTModel)
+L6.CTpValInteract <- L6.CTSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (L6.CTpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L6.CTpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L6.CTpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(L6.CT))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L6.CT Proportions", 
+        x = "Epigenetic Age", 
+        y = "L6.CT Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(L6b) ~ epigeneticAge * gender, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(L6b))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs L6b Proportions", 
+        x = "Epigenetic Age", 
+        y = "L6b Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(LAMP5) ~ epigeneticAge * gender, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(LAMP5))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs LAMP5 Proportions", 
+        x = "Epigenetic Age", 
+        y = "LAMP5 Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(Microglia) ~ epigeneticAge * gender, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(Microglia))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs Microglia Proportions", 
+        x = "Epigenetic Age", 
+        y = "Microglia Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(OPC) ~ epigeneticAge * gender, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(OPC))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs OPC Proportions", 
+        x = "Epigenetic Age", 
+        y = "OPC Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(Oligodendrocyte) ~ epigeneticAge * gender, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(Oligodendrocyte))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs Oligodendrocyte Proportions", 
+        x = "Epigenetic Age", 
+        y = "Oligodendrocyte Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(PAX6) ~ epigeneticAge * gender, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(PAX6))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs PAX6 Proportions", 
+        x = "Epigenetic Age", 
+        y = "PAX6 Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(PVALB) ~ epigeneticAge * gender, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(PVALB))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs PVALB Proportions", 
+        x = "Epigenetic Age", 
+        y = "PVALB Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(Pericyte) ~ epigeneticAge * gender, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(Pericyte))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs Pericyte Proportions", 
+        x = "Epigenetic Age", 
+        y = "Pericyte Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(SST) ~ epigeneticAge * gender, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(SST))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs SST Proportions", 
+        x = "Epigenetic Age", 
+        y = "SST Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+L4.ITModel <- lm(as.numeric(VIP) ~ epigeneticAge * gender, data = cellProp)
+L4.ITSummary <- summary(L4.ITModel)
+L4.ITpValInteract <- L4.ITSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (L4.ITpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(L4.ITpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(VIP))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs VIP Proportions", 
+        x = "Epigenetic Age", 
+        y = "VIP Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+vlmcModel <- lm(as.numeric(VLMC) ~ epigeneticAge * gender, data = cellProp)
+vlmcSummary <- summary(vlmcModel)
+vlmcpValInteract <- vlmcSummary$coefficients['epigeneticAge:gendermale', 'Pr(>|t|)']
+if (vlmcpValInteract < 0.005) {
+  significance <- paste("Signficant difference in slopes (p=", round(vlmcpValInteract, 3), ")")
+} else {
+   significance <- paste("No significant difference in slopes (p=", round(vlmcpValInteract, 3), ")")
+}
+ggplot(data = cellProp, mapping = aes(color = gender, x = epigeneticAge, y = as.numeric(VLMC))) +
+  geom_point() + 
+  labs( title = "Epigenetic Age vs VLMC Proportions", 
+        x = "Epigenetic Age", 
+        y = "VLMC Proportion") +
+  stat_smooth(method = "lm") + 
+  stat_cor() +
+  annotate("text", x = 0, y = 7, label = significance, size = 4, color = "black", hjust = 0)
+
+cellProp$epi_age_groups <- cut(x = cellProp$epigeneticAge, breaks = seq(10, 100, by = 10), labels = c("10-19", "20-29", "30-39", "40-49", "50-59", "60-69", "70-79", "80-89", "90+"))
+
+ggplot(data = cellProp, mapping = aes(x = epi_age_groups, y = model_residuals, color = gender)) +
+  geom_boxplot() + 
+  labs( x = "Chronological Age Groups", y = "Residuals", title = "Residuals for Chronological Age Groups")
+```
+
 
