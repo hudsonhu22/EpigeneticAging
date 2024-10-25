@@ -71,12 +71,15 @@ Diagnosis Specific Probes
 probeList <- fread(patient_info, select = 1)
 probeList <- probeList$V1
 controlCoeff <- as.numeric(coef.exact)
-diagnosisDF <- as.data.frame(controlCoeff)
-diagnosisDF$SchizophreniaCoeff <- as.numeric(positiveCoef.exact)
-diagnosisDF$controlProbes <- probeList[order(abs(diagnosisDF$controlCoeff))]
-diagnosisDF$controlProbesImpact <- diagnosisDF$controlCoeff[order(abs(diagnosisDF$controlCoeff))]
-diagnosisDF$schizophreniaProbes <- probeList[order(abs(diagnosisDF$SchizophreniaCoeff))]
-diagnosisDF$schizophreniaProbesImpact <- diagnosisDF$SchizophreniaCoeff[order(abs(diagnosisDF$SchizophreniaCoeff))]
+controlCoeff <- controlCoeff[2:length(controlCoeff)]
+diagnosisDF <- as.data.frame(probeList)
+diagnosisDF$controlCoeff <- controlCoeff
+diagnosisDF$SchizophreniaCoeff <- as.numeric(positiveCoef.exact[2:length(positiveCoef.exact)])
+diagnosisDF$controlProbes <- probeList[order(abs(diagnosisDF$controlCoeff), decreasing = TRUE)]
+order(abs(diagnosisDF$controlCoeff))
+diagnosisDF$controlProbesImpact <- diagnosisDF$controlCoeff[order(abs(diagnosisDF$controlCoeff), decreasing = TRUE)]
+diagnosisDF$schizophreniaProbes <- probeList[order(abs(diagnosisDF$SchizophreniaCoeff), decreasing = TRUE)]
+diagnosisDF$schizophreniaProbesImpact <- diagnosisDF$SchizophreniaCoeff[order(abs(diagnosisDF$SchizophreniaCoeff), decreasing = TRUE)]
 diagnosisDF
 ```
 Ancestry Information
