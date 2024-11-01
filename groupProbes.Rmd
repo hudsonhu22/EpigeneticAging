@@ -80,7 +80,16 @@ order(abs(diagnosisDF$controlCoeff))
 diagnosisDF$controlProbesImpact <- diagnosisDF$controlCoeff[order(abs(diagnosisDF$controlCoeff), decreasing = TRUE)]
 diagnosisDF$schizophreniaProbes <- probeList[order(abs(diagnosisDF$SchizophreniaCoeff), decreasing = TRUE)]
 diagnosisDF$schizophreniaProbesImpact <- diagnosisDF$SchizophreniaCoeff[order(abs(diagnosisDF$SchizophreniaCoeff), decreasing = TRUE)]
-diagnosisDF
+
+probe_information <- read.csv('/Users/hugohudson/Downloads/humanmethylation450_15017482_v1-2.csv')
+probe_information <-probe_information[9:nrow(probe_information), ]
+probe_information <- probe_information[seq(1, nrow(probe_information), by = 2), ]
+#diagnosisDF$schizophreniaLocations <- 
+probe_values <- diagnosisDF$schizophreniaProbes[1:4]
+# Filter rows with these values in a specific column (e.g., 'probesColumn')
+
+filtered_rows <- probe_information[probe_information$Illumina %in% probe_values, ]$X.22
+filtered_rows
 ```
 Ancestry Information
 ```{r}

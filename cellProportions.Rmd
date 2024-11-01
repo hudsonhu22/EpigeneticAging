@@ -12,6 +12,7 @@ library(ggpubr)
 library(patchwork)
 library(data.table)
 library(reshape2)
+library(tidyr)
 ```
 Data Filtering
 ```{r}
@@ -58,7 +59,7 @@ epiLM <-lm(as.numeric(age) ~ as.numeric(epigeneticAge), data = cellProp)
 model_residuals <- residuals(epiLM)
 epigeneticAge <- cellProp$epigeneticAge
 epigeneticAge<-as.numeric(cellProp$epigeneticAge)
-predicted_ages <- predict(ay, newdata = as.data.frame(epigeneticAge))
+predicted_ages <- predict(epiLM, newdata = as.data.frame(epigeneticAge))
 cellProp$epigeneticAge <- predicted_ages
 ```
 
@@ -393,7 +394,69 @@ ggplot(data = cellProp, mapping = aes(x = epi_age_groups, y = model_residuals, c
   geom_boxplot() + 
   labs( x = "Chronological Age Groups", y = "Residuals", title = "Residuals for Chronological Age Groups")
 
+data_long <- cellProp %>%
+  pivot_longer(
+    cols = Astrocyte:VLMC,
+    names_to = 'CellType',
+    values_to = 'Proportion'
+  )
+data_long
+data_long$residual <- as.numeric(data_long$epigeneticAge) - as.numeric(data_long$age)
+p <- ggplot(data_long, mapping = aes(residual, as.numeric(Proportion), colour = diagnosis)) + geom_point() + ylab('Cell Proportion')
+p + facet_wrap(vars(CellType))
+
+head(cellProp)
+lm(as.numeric(cellProp$Astrocyte) ~ as.numeric(cellProp$age))
+cellProp$Astrocyte
+model <- lapply(split(data_long, data_long$CellType), function(subdata) {
+  lm(Proportion ~ age, data = subdata)
+})
+
+model2 <- lapply(split(data_long, data_long$CellType), function(subdata) {
+  lm(Proportion ~ age + epigeneticAge, data = subdata)
+})
+model2
+model
+
+anova_results <- lapply(cell_types, function(var) {
+  # Extract the models for the current response variable
+  model1 <- model[[var]]
+  model22 <- model2[[var]]
+  
+  # Perform ANOVA
+  result <- anova(model1, model22)
+  return(data.frame(variable = var, result))
+})
+anova_summary <- do.call(rbind, anova_results)
+filtered_summary <- anova_summary[!is.na(anova_summary$Df), ]
+filtered_summary[filtered_summary$Pr..F. < 0.005, ]
+filtered_summary
+# remove outlier
+data_long <- data_long[data_long$residual > -18, ]
+model <- lapply(split(data_long, data_long$CellType), function(subdata) {
+  lm(Proportion ~ age, data = subdata)
+})
+
+model2 <- lapply(split(data_long, data_long$CellType), function(subdata) {
+  lm(Proportion ~ age + epigeneticAge, data = subdata)
+})
+anova_results <- lapply(cell_types, function(var) {
+  # Extract the models for the current response variable
+  model1 <- model[[var]]
+  model22 <- model2[[var]]
+  
+  # Perform ANOVA
+  result <- anova(model1, model22)
+  return(data.frame(variable = var, result))
+})
+anova_summary <- do.call(rbind, anova_results)
+p <- ggplot(data_long, mapping = aes(residual, as.numeric(Proportion), colour = diagnosis)) + geom_point() + ylab('Cell Proportion') +
+  stat_smooth(method = "lm") + 
+  stat_cor()
+p + facet_wrap(vars(CellType))
+
 ```
+
 ```{r}
 # Load necessary libraries
 library(dplyr)
